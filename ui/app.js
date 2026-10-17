@@ -6,7 +6,7 @@ const MODES = [
   { id: 'lesson', icon: '📖', title: '入門レッスン', text: '牌の種類から点数まで、順番に学ぶ', ready: false },
   { id: 'drill', icon: '✏️', title: '練習ドリル', text: '何切る・待ち当て・役当て・点数・危険牌', ready: false },
   { id: 'hint', icon: '💡', title: 'ヒント付き対局', text: 'おすすめの打牌と理由を見ながら打つ', ready: false },
-  { id: 'game', icon: '🎲', title: '4人対局', text: 'CPU 3人と東風戦・半荘戦（いまは鳴き・リーチなし）', ready: true },
+  { id: 'game', icon: '🎲', title: '4人対局', text: 'CPU 3人と東風戦・半荘戦。鳴き・リーチ・役・点数あり', ready: true },
   { id: 'mission', icon: '🎯', title: 'チャレンジ', text: '「タンヤオで和了る」などの目標', ready: false },
   { id: 'book', icon: '📚', title: '役図鑑・成績', text: '和了った役のコレクションと成績', ready: false },
 ];

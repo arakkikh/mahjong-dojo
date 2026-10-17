@@ -28,3 +28,30 @@ function report(label) {
 function K(text) { return parseKinds(text); }
 function C(text) { return countsFrom(text); }
 function codes(kinds) { return kinds.map(kindCode); }
+
+// 牌の表記から id を作る。"0m" などは赤ドラ。同じ種類は赤でない牌から順に使う。
+// used に入っている id（または前に作った id）は使わない。
+function IDS(text, used) {
+  const u = new Set(used || []);
+  const out = [];
+  let nums = [];
+  for (const ch of text.replace(/\s+/g, '')) {
+    if (ch >= '0' && ch <= '9') { nums.push(ch); continue; }
+    const si = SUITS.indexOf(ch);
+    for (const d of nums) {
+      let id;
+      if (d === '0') id = RED_IDS[si];
+      else {
+        const k = si * 9 + (+d) - 1;
+        const order = [1, 2, 3, 0].map(i => k * 4 + i);
+        id = order.find(x => !u.has(x) && RED_IDS.indexOf(x) < 0);
+        if (id == null) id = order.find(x => !u.has(x));
+      }
+      if (id == null || u.has(id)) throw new Error('牌が足りない: ' + text);
+      u.add(id);
+      out.push(id);
+    }
+    nums = [];
+  }
+  return out;
+}

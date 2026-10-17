@@ -32,3 +32,14 @@ function uraIndicators(w) {
   for (let i = 0; i < w.doraCount; i++) out.push(w.dead[5 + i * 2]);
   return out;
 }
+
+// 嶺上牌を1枚引く（カンの後）。海底が1枚手前に来る。
+function wallDrawRinshan(w) {
+  if (w.rinshan >= 4 || wallLeft(w) <= 0) return null;
+  return w.dead[w.rinshan++];
+}
+
+// 新しいドラ表示牌をめくる（カンの後）
+function wallRevealDora(w) {
+  if (w.doraCount < 5) w.doraCount++;
+}
