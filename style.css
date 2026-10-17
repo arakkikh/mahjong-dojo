@@ -127,3 +127,75 @@ button.big { background: var(--gold); color: #3a2a00; border-color: transparent;
 .ov-actions { display: grid; gap: 8px; margin-top: 12px; }
 .ov-actions button { color: #222; border-color: #ccc; background: #eee; }
 .ov-actions button.big { background: var(--gold); }
+
+/* 4人対局 */
+.start { display: grid; gap: 10px; margin-top: 10px; }
+.start .guide { font-size: 13px; background: var(--panel); border-radius: 10px; padding: 10px 12px; margin: 0; }
+button.wide { width: 100%; }
+.table {
+  /* 捨て牌は1行6枚・3行。--rw は捨て牌1枚の幅 */
+  --rw: min(calc((min(100vw, 520px) - var(--gutter) * 2) / 14.4), 26px);
+  --rh: calc(var(--rw) * 4 / 3);
+  --mid: calc(var(--rw) * 6 + 5px);
+  --side: calc(var(--rh) * 3 + 2px);
+  display: grid; position: relative;
+  grid-template-columns: var(--side) var(--mid) var(--side);
+  grid-template-rows: var(--side) var(--mid) var(--side);
+  width: calc(var(--side) * 2 + var(--mid)); margin: 4px auto 0;
+  background: rgba(0, 0, 0, .12); border-radius: 12px;
+}
+.rv-cell { position: relative; }
+.rv-bottom { grid-area: 3 / 2; }
+.rv-right { grid-area: 2 / 3; }
+.rv-top { grid-area: 1 / 2; }
+.rv-left { grid-area: 2 / 1; }
+.river4 {
+  position: absolute; left: 50%; top: 50%; width: var(--mid); height: var(--side);
+  display: grid; grid-template-columns: repeat(6, var(--rw)); grid-auto-rows: var(--rh); gap: 1px;
+  align-content: start;
+}
+.rv-bottom .river4 { transform: translate(-50%, -50%); }
+.rv-right .river4 { transform: translate(-50%, -50%) rotate(-90deg); }
+.rv-top .river4 { transform: translate(-50%, -50%) rotate(180deg); }
+.rv-left .river4 { transform: translate(-50%, -50%) rotate(90deg); }
+.rt .tile { width: var(--rw); height: var(--rh); }
+.rt.tg .tile { filter: brightness(.88); }
+.rt.last .tile { filter: drop-shadow(0 0 3px var(--gold)) drop-shadow(0 0 2px var(--gold)); }
+.center {
+  grid-area: 2 / 2; position: relative; border-radius: 10px;
+  background: rgba(0, 0, 0, .3); border: 1px solid rgba(255, 255, 255, .12);
+}
+.c-mid {
+  position: absolute; inset: 22% 20%; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 1px; font-size: 11px; color: var(--muted);
+}
+.c-mid > b { font-size: 16px; color: var(--ink); }
+.c-mid small b { color: var(--gold); font-size: 13px; }
+.c-dora { display: flex; align-items: center; gap: 3px; }
+.seat {
+  position: absolute; display: flex; align-items: center; gap: 3px;
+  font-size: 10px; line-height: 1.1; color: var(--muted); white-space: nowrap;
+}
+.seat .pts { font-size: 11px; color: var(--ink); }
+.seat .wind { font-weight: 700; color: var(--ink); }
+.seat .wind.oya { color: #3a2a00; background: var(--gold); border-radius: 3px; padding: 0 2px; }
+.seat.turn .pname { color: var(--gold); font-weight: 700; }
+.seat-bottom { bottom: 3px; left: 50%; transform: translateX(-50%); }
+.seat-top { top: 3px; left: 50%; transform: translateX(-50%); }
+.seat-right, .seat-left { top: 50%; flex-direction: column; gap: 1px; }
+.seat-right { right: 3px; transform: translateY(-50%); }
+.seat-left { left: 3px; transform: translateY(-50%); }
+.st-waits { display: inline-flex; gap: 2px; vertical-align: middle; font-weight: 400; font-size: 13px; }
+.g-actions .tsumo, .g-actions .ron { font-size: 18px; }
+.g-actions .ron { background: var(--accent); color: #fff; }
+.win-title.other { color: #555; }
+.pay { margin: 10px auto 4px; border-collapse: collapse; font-size: 14px; }
+.pay td { padding: 3px 8px; border-bottom: 1px solid #e3ddcc; text-align: right; }
+.pay td:nth-child(-n+2) { text-align: left; }
+.pay tr.me td { font-weight: 700; background: #fff3cf; }
+.pay .plus { color: #1d7a43; }
+.pay .minus { color: #c62828; }
+.pay.final { font-size: 16px; }
+.final-msg { font-size: 18px; font-weight: 700; }
+.tenpai-list { list-style: none; padding: 0; margin: 8px 0; text-align: left; display: grid; gap: 4px; font-size: 14px; }
+.waits-inline { display: inline-flex; gap: 2px; vertical-align: middle; }

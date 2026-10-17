@@ -6,6 +6,7 @@ function defaultSave() {
     version: 1,
     settings: { showShanten: true },
     solo: { played: 0, wins: 0, bestDraws: null },
+    game: { played: 0, ranks: [0, 0, 0, 0] },  // 4人対局の回数と、1位〜4位になった回数
   };
 }
 
@@ -23,6 +24,11 @@ function loadSave(storage) {
       if (Number.isInteger(s.played) && s.played >= 0) out.solo.played = s.played;
       if (Number.isInteger(s.wins) && s.wins >= 0) out.solo.wins = Math.min(s.wins, out.solo.played);
       if (Number.isInteger(s.bestDraws) && s.bestDraws > 0) out.solo.bestDraws = s.bestDraws;
+    }
+    if (d && d.game && Array.isArray(d.game.ranks) && d.game.ranks.length === 4 &&
+        d.game.ranks.every(n => Number.isInteger(n) && n >= 0)) {
+      out.game.ranks = d.game.ranks.slice();
+      out.game.played = out.game.ranks.reduce((x, y) => x + y, 0);
     }
   } catch (e) {
     // 壊れたデータは消さずに別の名前で残しておく
