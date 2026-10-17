@@ -7,6 +7,8 @@ function defaultSave() {
     settings: { showShanten: true },
     solo: { played: 0, wins: 0, bestDraws: null },
     game: { played: 0, ranks: [0, 0, 0, 0] },  // 4人対局の回数と、1位〜4位になった回数
+    lessons: [],   // 終わったレッスンの id
+    drills: {},    // ドリルごとの { tried, correct }
   };
 }
 
@@ -29,6 +31,15 @@ function loadSave(storage) {
         d.game.ranks.every(n => Number.isInteger(n) && n >= 0)) {
       out.game.ranks = d.game.ranks.slice();
       out.game.played = out.game.ranks.reduce((x, y) => x + y, 0);
+    }
+    if (d && Array.isArray(d.lessons)) out.lessons = d.lessons.filter(x => typeof x === 'string');
+    if (d && d.drills && typeof d.drills === 'object') {
+      for (const k of Object.keys(d.drills)) {
+        const v = d.drills[k];
+        if (v && Number.isInteger(v.tried) && Number.isInteger(v.correct) && v.tried >= 0 && v.correct >= 0) {
+          out.drills[k] = { tried: v.tried, correct: Math.min(v.correct, v.tried) };
+        }
+      }
     }
   } catch (e) {
     // 壊れたデータは消さずに別の名前で残しておく

@@ -1,5 +1,6 @@
 // 4人対局の画面
-const GAME = { g: null, sel: null, timer: null, shown: null, mode: null };
+const GAME = { g: null, sel: null, timer: null, shown: null, mode: null, hint: false, advice: null, after: null };
+// hint: ヒント付き対局か。advice: いま出しているおすすめ。after: おすすめと違う牌を捨てたときのひとこと
 // mode: null ふつう / 'riichi' リーチで捨てる牌を選ぶ / 'chi' チーの組を選ぶ
 const CPU_DELAY = 280;     // CPU が1手打つまでの間（ミリ秒）
 const GAME_SAVE_KEY = 'mahjong-dojo-game-v1';
@@ -7,16 +8,17 @@ const GAME_SAVE_KEY = 'mahjong-dojo-game-v1';
 // 席を画面の場所に。0 = 下（あなた）、1 = 右（下家）、2 = 上（対面）、3 = 左（上家）
 const SEAT_POS = ['bottom', 'right', 'top', 'left'];
 
-// --- 途中の対局の保存（局の途中でも、閉じたところから続けられる） ---
+// --- 途中の対局の保存（局の途中でも、閉じたところから続けられる）。ヒント付きは別に保存 ---
+function gameSaveKey(hint) { return GAME_SAVE_KEY + (hint ? '-hint' : ''); }
 function gameSaveCurrent() {
   try {
-    if (!GAME.g || GAME.g.over) localStorage.removeItem(GAME_SAVE_KEY);
-    else localStorage.setItem(GAME_SAVE_KEY, JSON.stringify(GAME.g));
+    if (!GAME.g || GAME.g.over) localStorage.removeItem(gameSaveKey(GAME.hint));
+    else localStorage.setItem(gameSaveKey(GAME.hint), JSON.stringify(GAME.g));
   } catch (e) {}
 }
 function gameLoadSaved() {
   try {
-    const raw = localStorage.getItem(GAME_SAVE_KEY);
+    const raw = localStorage.getItem(gameSaveKey(GAME.hint));
     if (!raw) return null;
     const g = JSON.parse(raw);
     // 前の段階で保存した対局は形が違うので続けられない
@@ -25,17 +27,23 @@ function gameLoadSaved() {
     return g;
   } catch (e) { return null; }
 }
-function gameDropSaved() { try { localStorage.removeItem(GAME_SAVE_KEY); } catch (e) {} }
+function gameDropSaved() { try { localStorage.removeItem(gameSaveKey(GAME.hint)); } catch (e) {} }
+function onGameScreen() { return APP.screen === 'game' || APP.screen === 'hint'; }
+function gameTitle() { return GAME.hint ? 'ヒント付き対局' : '4人対局'; }
 
 // --- 始める ---
-function gameOpen() {
+function gameOpen(hint) {
+  GAME.hint = !!hint;
   const saved = gameLoadSaved();
   GAME.g = null;
   $app().innerHTML =
-    `<header class="bar"><button class="back" data-go="home">← ホーム</button><b>4人対局</b></header>` +
+    `<header class="bar"><button class="back" data-go="home">← ホーム</button><b>${gameTitle()}</b></header>` +
     `<section class="start">` +
-    `<p class="guide">あなたと CPU 3人で対局します。チー・ポン・カン・リーチもできます。<br>` +
-    `和了るには<b>役が1つ以上</b>必要です（リーチ・タンヤオ・役牌など）。</p>` +
+    (GAME.hint
+      ? `<p class="guide">あなたの番になるたびに、<b>おすすめの打牌と理由</b>を出します（光っている牌がおすすめ）。鳴きやリーチのときもアドバイスします。<br>` +
+        `おすすめと違う牌を捨てても大丈夫。そのときは、おすすめとの違いを教えます。</p>`
+      : `<p class="guide">あなたと CPU 3人で対局します。チー・ポン・カン・リーチもできます。<br>` +
+        `和了るには<b>役が1つ以上</b>必要です（リーチ・タンヤオ・役牌など）。</p>`) +
     (saved ? `<button class="big wide" data-act="resume">続きから（${esc(roundLabel(saved))} ${saved.honba}本場）</button>` : '') +
     `<button class="${saved ? '' : 'big '}wide" data-act="start-tonpu">東風戦を始める（4局〜）</button>` +
     `<button class="wide" data-act="start-hanchan">半荘戦を始める（8局〜）</button>` +
@@ -47,6 +55,8 @@ function gameBegin(g) {
   GAME.sel = null;
   GAME.mode = null;
   GAME.shown = null;
+  GAME.advice = null;
+  GAME.after = null;
   gameSaveCurrent();
   gameRender();
   gameSchedule();
@@ -61,7 +71,7 @@ function gameStop() {
 function gameSchedule() {
   gameStop();
   const g = GAME.g;
-  if (!g || APP.screen !== 'game') return;
+  if (!g || !onGameScreen()) return;
   if (g.over) { gameShowFinal(); return; }
   if (g.h.phase === 'end') { gameShowResult(); return; }
   if (waitingHuman(g)) { gameSaveCurrent(); return; }
@@ -69,7 +79,7 @@ function gameSchedule() {
   const delay = g.h.phase === 'draw' ? 60 : CPU_DELAY;
   GAME.timer = setTimeout(() => {
     GAME.timer = null;
-    if (GAME.g !== g || APP.screen !== 'game') return;
+    if (GAME.g !== g || !onGameScreen()) return;
     gameStep(g);
     gameRender();
     gameSchedule();
@@ -131,7 +141,8 @@ function gameHandHtml(g) {
   const tile = (id, extra) => {
     let can = myTurn && canDiscardId(g, HUMAN, id);
     if (riichiIds) can = riichiIds.indexOf(id) >= 0;
-    const cls = (GAME.sel === id ? ' sel' : '') + (extra || '') + (myTurn && !can ? ' ng' : '') + (riichiIds && can ? ' rc' : '');
+    const rec = GAME.advice && GAME.advice.id === id && GAME.mode !== 'riichi' ? ' rec' : '';
+    const cls = (GAME.sel === id ? ' sel' : '') + (extra || '') + (myTurn && !can ? ' ng' : '') + (riichiIds && can ? ' rc' : '') + rec;
     return `<button class="ht${cls}" data-act="gtile" data-id="${id}"${can ? '' : ' disabled'}>` + tileSvgId(id, g.rules) + `</button>`;
   };
   let html = h.hands[HUMAN].map(id => tile(id)).join('');
@@ -186,17 +197,19 @@ function actionButtons(g) {
         sortIds(p.concat([h.last.id])).map(id => tileSvgId(id, g.rules, 'mini')).join('') + `</button>`).join('');
       return opts + `<button data-act="cancel">もどる</button>`;
     }
+    const r = a => GAME.advice && GAME.advice.action === a ? ' rec' : '';
     let b = '';
-    if (ho.ron) b += `<button class="big ron" data-act="ron">ロン</button>`;
-    if (ho.pon) b += `<button class="call" data-act="pon">ポン</button>`;
-    if (ho.kan) b += `<button class="call" data-act="mkan">カン</button>`;
-    if (ho.chi) b += `<button class="call" data-act="chi">チー</button>`;
-    return b + `<button data-act="pass">スキップ</button>`;
+    if (ho.ron) b += `<button class="big ron${r('ron')}" data-act="ron">ロン</button>`;
+    if (ho.pon) b += `<button class="call${r('pon')}" data-act="pon">ポン</button>`;
+    if (ho.kan) b += `<button class="call${r('kan')}" data-act="mkan">カン</button>`;
+    if (ho.chi) b += `<button class="call${r('chi')}" data-act="chi">チー</button>`;
+    return b + `<button class="${r('pass').trim()}" data-act="pass">スキップ</button>`;
   }
   const myTurn = h.phase === 'discard' && h.turn === HUMAN;
   if (myTurn && GAME.mode === 'riichi') return `<button data-act="cancel">リーチをやめる</button>`;
   let b = `<button class="big tsumo" data-act="gtsumo"${myTurn && canTsumo(g, HUMAN) ? '' : ' disabled'}>ツモ</button>`;
-  if (myTurn && riichiCandidates(g, HUMAN).length) b += `<button class="call riichi" data-act="riichi">リーチ</button>`;
+  const recR = GAME.advice && GAME.advice.action === 'riichi' ? ' rec' : '';
+  if (myTurn && riichiCandidates(g, HUMAN).length) b += `<button class="call riichi${recR}" data-act="riichi">リーチ</button>`;
   if (myTurn) {
     for (const o of kanOptions(g, HUMAN)) {
       b += `<button class="call" data-act="kan" data-kind="${o.kind}">${o.type === 'ankan' ? '暗槓' : '加槓'} ${tileSvgKind(o.kind, 'mini')}</button>`;
@@ -206,10 +219,40 @@ function actionButtons(g) {
   return b + `<button data-act="quit">中断してホームへ</button>`;
 }
 
+// ヒントの欄
+function hintPanelHtml(g) {
+  let html = '';
+  if (GAME.after) html += `<div class="hint after">${GAME.after}</div>`;
+  const a = GAME.advice;
+  if (!a) return html;
+  const choices = a.choices && a.mode !== 'defense' && a.action !== 'tsumo'
+    ? `<details><summary>ほかの候補とくらべる</summary><table class="nk"><tbody>` +
+      a.choices.map(c => `<tr${c.kind === a.kind ? ' class="best"' : ''}><td>${tileSvgKind(c.kind, 'mini')}</td>` +
+        `<td>${c.shanten === 0 ? '聴牌' : c.shanten + 'シャンテン'}</td><td>${c.ukeire.length}種${c.total}枚</td></tr>`).join('') +
+      `</tbody></table></details>`
+    : (a.choices && a.mode === 'defense'
+      ? `<details><summary>ほかの牌の安全さ</summary><table class="nk dg"><tbody>` +
+        a.choices.map(c => `<tr${c.kind === a.kind ? ' class="best"' : ''}><td>${tileSvgKind(c.kind, 'mini')}</td><td>${esc(c.safeReason)}</td></tr>`).join('') +
+        `</tbody></table></details>`
+      : '');
+  html += `<div class="hint"><b>💡 ${esc(a.title)}</b>` +
+    a.reasons.map(r => `<p>${esc(r)}</p>`).join('') + choices + `</div>`;
+  return html;
+}
+
+function updateAdvice(g) {
+  GAME.advice = null;
+  if (!GAME.hint || !waitingHuman(g)) return;
+  const h = g.h;
+  if (h.phase === 'discard') GAME.advice = hintTurn(g, HUMAN);
+  else if (h.phase === 'call') GAME.advice = hintCall(g);
+}
+
 function gameRender() {
   const g = GAME.g;
   if (!g || g.over) return;
   const h = g.h;
+  updateAdvice(g);
   const st = gameStatus(g);
   const myTurn = h.phase === 'discard' && h.turn === HUMAN;
   const show = APP.save.settings.showShanten;
@@ -217,13 +260,14 @@ function gameRender() {
   const myMelds = h.melds[HUMAN].length
     ? `<div class="my-melds">${h.melds[HUMAN].map(m => meldHtml(g, m, 'mid')).join('')}</div>` : '';
   $app().innerHTML =
-    `<header class="bar"><button class="back" data-act="quit">← ホーム</button><b>4人対局</b>` +
+    `<header class="bar"><button class="back" data-act="quit">← ホーム</button><b>${gameTitle()}</b>` +
     `<span class="seed">対局 #${g.seed}</span></header>` +
     tableHtml(g) +
     `<p class="status${st.win ? ' win' : ''}">${esc(st.text)}${waitsHtml}</p>` +
     myMelds +
     `<section class="hand${myTurn ? '' : ' done'}">${gameHandHtml(g)}</section>` +
     `<section class="actions g-actions">${actionButtons(g)}</section>` +
+    (GAME.hint ? hintPanelHtml(g) : '') +
     `<label class="opt"><input type="checkbox" data-act="gtoggle-shanten"${show ? ' checked' : ''}> シャンテン数・待ちを表示する</label>`;
 }
 
@@ -333,10 +377,12 @@ function gameShowFinal() {
   GAME.shown = 'final';
   const rank = gameRanking(g);
   const myRank = rank.indexOf(HUMAN) + 1;
-  const st = APP.save.game;
-  st.played++;
-  st.ranks[myRank - 1]++;
-  writeSave(APP.save);
+  if (!GAME.hint) {
+    const st = APP.save.game;
+    st.played++;
+    st.ranks[myRank - 1]++;
+    writeSave(APP.save);
+  }
   gameDropSaved();
   const rows = rank.map((s, i) =>
     `<tr${s === HUMAN ? ' class="me"' : ''}><td>${i + 1}位</td><td>${SEAT_NAME[s]}</td><td>${g.points[s]}</td></tr>`).join('');
@@ -355,6 +401,21 @@ function afterHumanAct() {
   gameSchedule();
 }
 
+// おすすめと違う選択をしたとき、ひとこと残す（次にあなたの番が来るまで表示）
+function noteChoice(kind, action) {
+  const a = GAME.advice;
+  GAME.after = null;
+  if (!GAME.hint || !a) return;
+  if (action === 'discard' && (a.action === 'discard' || a.action === 'riichi') && kind !== a.kind) {
+    GAME.after = `${esc(kindName(kind))} を捨てました。おすすめは ${esc(kindName(a.kind))} でした：${esc(a.reasons[0])}`;
+  } else if (action === 'discard' && a.action === 'tsumo') {
+    GAME.after = 'ツモ和了できる牌を捨てました（見逃し）。';
+  } else if (action !== 'discard' && action !== a.action) {
+    const name = { ron: 'ロン', pon: 'ポン', chi: 'チー', kan: 'カン', pass: 'スキップ' };
+    GAME.after = `${name[action] || action}を選びました。おすすめは「${name[a.action] || a.action}」でした：${esc(a.reasons[0])}`;
+  }
+}
+
 function gameAction(act, el) {
   const g = GAME.g;
   if (act === 'start-tonpu' || act === 'start-hanchan') {
@@ -363,12 +424,14 @@ function gameAction(act, el) {
   }
   if (act === 'resume') { const s = gameLoadSaved(); if (s) gameBegin(s); else gameOpen(); return; }
   if (act === 'again') { hideOverlay(); gameBegin(gameNew(randomSeed(), g.rules)); return; }
+  if (act === 'gtsumo' || act === 'kan' || act === 'kyuushu') GAME.after = null;
   if (act === 'quit') { gameStop(); gameSaveCurrent(); go('home'); return; }
   if (!g) return;
   if (act === 'close') { hideOverlay(); return; }
   if (act === 'show-result') { GAME.shown = null; gameShowResult(); return; }
   if (act === 'next') {
     hideOverlay();
+    GAME.after = null;
     gameNextHand(g);
     GAME.sel = null;
     GAME.mode = null;
@@ -385,20 +448,21 @@ function gameAction(act, el) {
   }
   if (act === 'cancel') { GAME.mode = null; GAME.sel = null; gameRender(); return; }
   // 鳴き・ロンの返事
-  if (act === 'ron') { if (gameCall(g, 'ron')) afterHumanAct(); return; }
-  if (act === 'pon') { if (gameCall(g, 'pon')) afterHumanAct(); return; }
-  if (act === 'mkan') { if (gameCall(g, 'kan')) afterHumanAct(); return; }
-  if (act === 'pass') { if (gameCall(g, 'pass')) afterHumanAct(); return; }
+  if (act === 'ron') { noteChoice(null, 'ron'); if (gameCall(g, 'ron')) afterHumanAct(); return; }
+  if (act === 'pon') { noteChoice(null, 'pon'); if (gameCall(g, 'pon')) afterHumanAct(); return; }
+  if (act === 'mkan') { noteChoice(null, 'kan'); if (gameCall(g, 'kan')) afterHumanAct(); return; }
+  if (act === 'pass') { noteChoice(null, 'pass'); if (gameCall(g, 'pass')) afterHumanAct(); return; }
   if (act === 'chi') {
     const opts = g.h.claims && g.h.claims.chiOptions;
     if (!opts) return;
-    if (opts.length === 1) { if (gameCall(g, 'chi', opts[0])) afterHumanAct(); return; }
+    if (opts.length === 1) { noteChoice(null, 'chi'); if (gameCall(g, 'chi', opts[0])) afterHumanAct(); return; }
     GAME.mode = 'chi';
     gameRender();
     return;
   }
   if (act === 'chi-opt') {
     const o = g.h.claims && g.h.claims.chiOptions[+el.getAttribute('data-i')];
+    if (o) noteChoice(null, 'chi');
     if (o && gameCall(g, 'chi', o)) afterHumanAct();
     return;
   }
@@ -411,6 +475,8 @@ function gameAction(act, el) {
     if (!waitingHuman(g) || g.h.phase !== 'discard') return;
     const id = +el.getAttribute('data-id');
     if (APP.rules.tapMode === 'double' && GAME.sel !== id) { GAME.sel = id; gameRender(); return; }
-    if (gameDiscard(g, HUMAN, id, GAME.mode === 'riichi')) afterHumanAct();
+    const riichi = GAME.mode === 'riichi';
+    if (canDiscardId(g, HUMAN, id)) noteChoice(kindOf(id), 'discard');
+    if (gameDiscard(g, HUMAN, id, riichi)) afterHumanAct();
   }
 }

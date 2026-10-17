@@ -30,43 +30,55 @@ function tanyaoRoute(g, seat, extraIds) {
   return true;
 }
 
-// 危険度の低さ（大きいほど安全）。リーチしている人 riichiSeats に対して。
-function safetyOf(g, kind, riichiSeats) {
+// リーチしている人1人に対する、牌の種類 kind の安全さ（大きいほど安全）と、その理由。
+// river: その人の捨て牌の種類、passed: リーチの後に他の人が捨てて通った種類、visible: 見えている枚数
+function tileSafety(kind, river, passed, visible) {
+  if (river.indexOf(kind) >= 0) return { safe: 100, reason: '現物（リーチした人が自分で捨てた牌。その牌ではロンされない）' };
+  if (passed.indexOf(kind) >= 0) return { safe: 95, reason: 'リーチの後に他の人が捨てて通った牌（同じ巡目のフリテンでロンされない）' };
+  if (isHonor(kind)) {
+    const v = visible[kind];
+    if (v >= 3) return { safe: 90, reason: `字牌で、もう${v}枚見えている（単騎待ちでしか当たらず、ほぼ安全）` };
+    if (v === 2) return { safe: 70, reason: '字牌で、もう2枚見えている（シャンポン待ちがなく単騎だけ）' };
+    return { safe: 40, reason: '字牌（まだあまり見えていないので、シャンポン・単騎で当たることがある）' };
+  }
+  const n = numOf(kind);
+  const has = d => river.indexOf(kind + d) >= 0;
+  let suji;
+  if (n <= 3) suji = has(3);
+  else if (n >= 7) suji = has(-3);
+  else suji = has(3) && has(-3);
+  if (suji) {
+    const pair = n <= 3 ? `${n + 3}` : n >= 7 ? `${n - 3}` : `${n - 3}と${n + 3}`;
+    return { safe: isTerminal(kind) ? 75 : 60, reason: `筋（${pair}が捨てられているので、両面待ちでは当たらない）` };
+  }
+  if (isTerminal(kind)) return { safe: 35, reason: '1・9 の牌（両面待ちで当たるのは片側だけ）' };
+  if (n === 2 || n === 8) return { safe: 20, reason: '2・8 の牌（当たる待ちが少しある）' };
+  return { safe: 10, reason: '真ん中の数牌（いろいろな待ちで当たりやすい、危ない牌）' };
+}
+
+// 対局中の、リーチしている人たち全員に対する安全さ（いちばん危ない相手で決める）
+function safetyInfo(g, kind, riichiSeats) {
   const h = g.h;
   const vis = gameVisible(g);
-  let worst = 100;
+  let worst = null;
   for (const r of riichiSeats) {
     const river = h.discards[r].map(d => kindOf(d.id));
-    // リーチの後に他の人が捨てて通った牌も安全
+    const passed = [];
     const idx = h.discards[r].findIndex(d => d.riichi);
-    let safe = river.indexOf(kind) >= 0;
-    if (!safe && idx >= 0) {
+    if (idx >= 0) {
       const after = h.discards[r].length - idx;
-      for (let s = 0; s < 4 && !safe; s++) {
+      for (let s = 0; s < 4; s++) {
         if (s === r) continue;
         const ds = h.discards[s];
-        if (ds.slice(Math.max(0, ds.length - after)).some(d => kindOf(d.id) === kind)) safe = true;
+        for (const d of ds.slice(Math.max(0, ds.length - after))) passed.push(kindOf(d.id));
       }
     }
-    let v;
-    if (safe) v = 100;
-    else if (isHonor(kind)) v = vis[kind] >= 3 ? 90 : vis[kind] === 2 ? 70 : 40;
-    else {
-      const n = numOf(kind);
-      const suji = d => river.indexOf(kind + d) >= 0;
-      let sujiSafe;
-      if (n <= 3) sujiSafe = suji(3);
-      else if (n >= 7) sujiSafe = suji(-3);
-      else sujiSafe = suji(3) && suji(-3);
-      if (sujiSafe) v = isTerminal(kind) ? 75 : 60;
-      else if (isTerminal(kind)) v = 35;
-      else if (n === 2 || n === 8) v = 20;
-      else v = 10;
-    }
-    if (v < worst) worst = v;
+    const v = tileSafety(kind, river, passed, vis);
+    if (!worst || v.safe < worst.safe) worst = v;
   }
-  return worst;
+  return worst || { safe: 100, reason: '' };
 }
+function safetyOf(g, kind, riichiSeats) { return safetyInfo(g, kind, riichiSeats).safe; }
 
 function cpuChooseDiscard(g, seat) {
   const h = g.h;
