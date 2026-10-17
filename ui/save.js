@@ -4,11 +4,15 @@ const SAVE_KEY = 'mahjong-dojo-save-v1';
 function defaultSave() {
   return {
     version: 1,
-    settings: { showShanten: true },
+    settings: { showShanten: true, speed: 'normal' },  // speed: CPU の速さ 'slow' / 'normal' / 'fast'
+    rules: Object.assign({}, DEFAULT_RULES),
     solo: { played: 0, wins: 0, bestDraws: null },
     game: { played: 0, ranks: [0, 0, 0, 0] },  // 4人対局の回数と、1位〜4位になった回数
     lessons: [],   // 終わったレッスンの id
     drills: {},    // ドリルごとの { tried, correct }
+    missions: [],  // 達成したチャレンジの id
+    yakuSeen: {},  // 役図鑑：和了った役（図鑑の見出し）ごとの回数
+    records: defaultRecords(),  // 4人対局の成績
   };
 }
 
@@ -31,6 +35,20 @@ function loadSave(storage) {
         d.game.ranks.every(n => Number.isInteger(n) && n >= 0)) {
       out.game.ranks = d.game.ranks.slice();
       out.game.played = out.game.ranks.reduce((x, y) => x + y, 0);
+    }
+    if (d && d.settings && ['slow', 'normal', 'fast'].indexOf(d.settings.speed) >= 0) out.settings.speed = d.settings.speed;
+    if (d && d.rules) out.rules = normalizeRules(d.rules);
+    if (d && Array.isArray(d.missions)) out.missions = d.missions.filter(x => typeof x === 'string');
+    if (d && d.yakuSeen && typeof d.yakuSeen === 'object') {
+      for (const k of Object.keys(d.yakuSeen)) if (Number.isInteger(d.yakuSeen[k]) && d.yakuSeen[k] > 0) out.yakuSeen[k] = d.yakuSeen[k];
+    }
+    if (d && d.records && typeof d.records === 'object') {
+      const r = d.records;
+      for (const k of ['hands', 'wins', 'tsumo', 'dealIns', 'riichi', 'calls', 'winPoints']) {
+        if (Number.isInteger(r[k]) && r[k] >= 0) out.records[k] = r[k];
+      }
+      if (r.best && Number.isInteger(r.best.points)) out.records.best = r.best;
+      if (Array.isArray(r.recent)) out.records.recent = r.recent.filter(x => x && Number.isInteger(x.rank)).slice(0, 20);
     }
     if (d && Array.isArray(d.lessons)) out.lessons = d.lessons.filter(x => typeof x === 'string');
     if (d && d.drills && typeof d.drills === 'object') {
