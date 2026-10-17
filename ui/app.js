@@ -3,9 +3,9 @@ const APP = { screen: 'home', save: null, rules: DEFAULT_RULES };
 
 const MODES = [
   { id: 'solo', icon: '🀄', title: '1人打ち練習', text: '牌を引いて捨てて、和了の形を作る練習', ready: true },
-  { id: 'lesson', icon: '📖', title: '入門レッスン', text: '牌の種類から点数まで、順番に学ぶ', ready: false },
-  { id: 'drill', icon: '✏️', title: '練習ドリル', text: '何切る・待ち当て・役当て・点数・危険牌', ready: false },
-  { id: 'hint', icon: '💡', title: 'ヒント付き対局', text: 'おすすめの打牌と理由を見ながら打つ', ready: false },
+  { id: 'lesson', icon: '📖', title: '入門レッスン', text: '牌の種類から点数まで、順番に学ぶ', ready: true },
+  { id: 'drill', icon: '✏️', title: '練習ドリル', text: '何切る・待ち当て・役当て・点数・危険牌', ready: true },
+  { id: 'hint', icon: '💡', title: 'ヒント付き対局', text: 'おすすめの打牌と理由を見ながら打つ', ready: true },
   { id: 'game', icon: '🎲', title: '4人対局', text: 'CPU 3人と東風戦・半荘戦。鳴き・リーチ・役・点数あり', ready: true },
   { id: 'mission', icon: '🎯', title: 'チャレンジ', text: '「タンヤオで和了る」などの目標', ready: false },
   { id: 'book', icon: '📚', title: '役図鑑・成績', text: '和了った役のコレクションと成績', ready: false },
@@ -34,7 +34,10 @@ function go(screen) {
   hideOverlay();
   window.scrollTo(0, 0);
   if (screen === 'solo') soloStart();
-  else if (screen === 'game') gameOpen();
+  else if (screen === 'game') gameOpen(false);
+  else if (screen === 'hint') gameOpen(true);
+  else if (screen === 'lesson') lessonOpen();
+  else if (screen === 'drill') drillOpen();
   else renderHome();
 }
 
@@ -57,7 +60,8 @@ function renderHome() {
     `<nav class="modes">${items}</nav>` +
     `<p class="home-stat">1人打ち練習：${s.played}回／和了 ${s.wins}回` +
     (s.bestDraws ? `／最速 ${s.bestDraws}巡目` : '') + `<br>` +
-    `4人対局：${gs.played}回` + (gs.played ? `（${gs.ranks.map((n, i) => `${i + 1}位 ${n}`).join('・')}）` : '') + `</p>`;
+    `4人対局：${gs.played}回` + (gs.played ? `（${gs.ranks.map((n, i) => `${i + 1}位 ${n}`).join('・')}）` : '') + `<br>` +
+    `入門レッスン：${APP.save.lessons.filter(id => LESSONS.some(l => l.id === id)).length}／${LESSONS.length}` + `</p>`;
 }
 
 function appBoot() {
@@ -68,8 +72,11 @@ function appBoot() {
     if (g && !g.disabled) { go(g.getAttribute('data-go')); return; }
     const a = e.target.closest('[data-act]');
     if (!a || a.disabled) return;
-    if (APP.screen === 'game') gameAction(a.getAttribute('data-act'), a);
-    else soloAction(a.getAttribute('data-act'), a);
+    const act = a.getAttribute('data-act');
+    if (APP.screen === 'game' || APP.screen === 'hint') gameAction(act, a);
+    else if (APP.screen === 'lesson') lessonAction(act, a);
+    else if (APP.screen === 'drill') drillAction(act, a);
+    else soloAction(act, a);
   });
   go('home');
 }

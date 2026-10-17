@@ -145,7 +145,7 @@ function yakuOf(ctx, r, sets, pair, allKinds) {
 
   if (r.form === 'chiitoi') {
     add('七対子', 2);
-    return { yaku: y, fu: 25 };
+    return { yaku: y, fu: 25, fuParts: [{ name: '七対子は25符ちょうど', fu: 25 }] };
   }
 
   // 一般形
@@ -195,28 +195,41 @@ function yakuOf(ctx, r, sets, pair, allKinds) {
   if (kou.filter(s => s.type === 'kantsu').length === 3) add('三槓子', 2);
   if (kou.filter(s => isDragon(s.kind)).length === 2 && isDragon(pair)) add('小三元', 2);
 
-  // 符
+  // 符（内訳も残す）
+  const fuParts = [];
+  const fp = (name, f) => fuParts.push({ name, fu: f });
   let fu;
   if (pinfu) {
     fu = ctx.tsumo ? 20 : 30;
+    fp(ctx.tsumo ? '平和のツモは20符ちょうど' : '平和のロンは30符ちょうど', fu);
   } else {
     fu = 20;
-    if (menzen && !ctx.tsumo) fu += 10;
-    if (ctx.tsumo) fu += 2;
+    fp('副底', 20);
+    if (menzen && !ctx.tsumo) { fu += 10; fp('門前のロン', 10); }
+    if (ctx.tsumo) { fu += 2; fp('ツモ', 2); }
     for (const s of kou) {
       let f = s.type === 'kantsu' ? 8 : 2;
       if (!s.open) f *= 2;
       if (isYaochu(s.kind)) f *= 2;
       fu += f;
+      const what = (s.type === 'kantsu' ? (s.open ? '明槓' : '暗槓') : (s.open ? '明刻' : '暗刻'));
+      fp(`${kindName(s.kind)}の${what}（${isYaochu(s.kind) ? '么九牌' : '中張牌'}）`, f);
     }
-    if (pair === seatK && pair === roundK) fu += (ctx.rules && ctx.rules.doubleWindPair) || 2;
-    else if (pair === seatK || pair === roundK) fu += 2;
-    if (isDragon(pair)) fu += 2;
-    if (r.wait === 'kanchan' || r.wait === 'penchan' || r.wait === 'tanki') fu += 2;
+    let pf = 0;
+    if (pair === seatK && pair === roundK) pf += (ctx.rules && ctx.rules.doubleWindPair) || 2;
+    else if (pair === seatK || pair === roundK) pf += 2;
+    if (isDragon(pair)) pf += 2;
+    if (pf) { fu += pf; fp(`${kindName(pair)}の雀頭（役牌）`, pf); }
+    if (r.wait === 'kanchan' || r.wait === 'penchan' || r.wait === 'tanki') {
+      fu += 2;
+      fp({ kanchan: '嵌張待ち', penchan: '辺張待ち', tanki: '単騎待ち' }[r.wait], 2);
+    }
+    const raw = fu;
     fu = Math.ceil(fu / 10) * 10;
     if (fu === 20) fu = 30;  // 鳴いた平和の形のロンなど
+    if (fu !== raw) fp(`${raw}符を10符単位に切り上げ${raw <= 20 ? '（鳴いた手は最低30符）' : ''}`, fu - raw);
   }
-  return { yaku: y, fu };
+  return { yaku: y, fu, fuParts };
 }
 
 // 和了の点数。役がなければ null。
@@ -242,9 +255,9 @@ function scoreHand(ctx) {
     if (ym.length) {
       res = { yaku: ym.map(name => ({ name, han: 13 })), yakuman: ym.length, han: 0, fu: 0 };
     } else {
-      const { yaku, fu } = yakuOf(ctx, r, sets, pair, allKinds);
+      const { yaku, fu, fuParts } = yakuOf(ctx, r, sets, pair, allKinds);
       if (!yaku.length) continue;
-      res = { yaku, yakuman: 0, han: yaku.reduce((s, x) => s + x.han, 0), fu };
+      res = { yaku, yakuman: 0, han: yaku.reduce((s, x) => s + x.han, 0), fu, fuParts };
     }
     res.form = r.form;
     res.part = r.part || null;
