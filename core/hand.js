@@ -68,43 +68,80 @@ function isAgari(counts, melds) { return agariForm(counts, melds || 0) !== null;
 // 一般形のシャンテン数。-1 = 和了、0 = 聴牌。
 // 面子 m・搭子（あと1枚で面子）t・雀頭 p を数えて 2×(作る面子数) − 2m − t − p。
 // 面子と搭子は合わせて「作る面子数」までしか数えない。
-function shantenStandard(counts, melds) {
-  const c = counts.slice();
-  const k = 4 - (melds || 0);
-  let best = 2 * k;
+// 速くするため、色（萬子・筒子・索子・字牌）ごとに取れる (m, t, p) の組を調べて覚えておき、最後に組み合わせる。
+const SUIT_SHAPES = new Map();
+
+function suitShapes(c, from, len) {
+  let key = from >= 27 ? 'z' : 'n';
+  for (let i = 0; i < len; i++) key += c[from + i];
+  const cached = SUIT_SHAPES.get(key);
+  if (cached) return cached;
+  const a = c.slice(from, from + len);
+  const honor = from >= 27;
+  const seen = new Set();
+  const out = [];
   function dfs(i, m, t, p) {
-    if (best === -1) return;
-    while (i < KIND_COUNT && c[i] === 0) i++;
-    if (i >= KIND_COUNT) {
-      const tt = m + t > k ? k - m : t;
-      const s = 2 * k - 2 * m - tt - p;
-      if (s < best) best = s;
+    while (i < len && a[i] === 0) i++;
+    if (i >= len) {
+      const k = m * 32 + t * 2 + p;
+      if (!seen.has(k)) { seen.add(k); out.push([m, t, p]); }
       return;
     }
-    const n = i < 27 ? i % 9 : -1;
-    if (c[i] >= 3) { c[i] -= 3; dfs(i, m + 1, t, p); c[i] += 3; }
-    if (n >= 0 && n <= 6 && c[i + 1] > 0 && c[i + 2] > 0) {
-      c[i]--; c[i + 1]--; c[i + 2]--;
+    if (a[i] >= 3) { a[i] -= 3; dfs(i, m + 1, t, p); a[i] += 3; }
+    if (!honor && i <= 6 && a[i + 1] > 0 && a[i + 2] > 0) {
+      a[i]--; a[i + 1]--; a[i + 2]--;
       dfs(i, m + 1, t, p);
-      c[i]++; c[i + 1]++; c[i + 2]++;
+      a[i]++; a[i + 1]++; a[i + 2]++;
     }
-    if (c[i] >= 2) {
-      c[i] -= 2;
+    if (a[i] >= 2) {
+      a[i] -= 2;
       if (!p) dfs(i, m, t, 1);
-      if (m + t < k) dfs(i, m, t + 1, p);
-      c[i] += 2;
+      dfs(i, m, t + 1, p);
+      a[i] += 2;
     }
-    if (m + t < k) {
-      if (n >= 0 && n <= 7 && c[i + 1] > 0) { c[i]--; c[i + 1]--; dfs(i, m, t + 1, p); c[i]++; c[i + 1]++; }
-      if (n >= 0 && n <= 6 && c[i + 2] > 0) { c[i]--; c[i + 2]--; dfs(i, m, t + 1, p); c[i]++; c[i + 2]++; }
+    if (!honor) {
+      if (i <= 7 && a[i + 1] > 0) { a[i]--; a[i + 1]--; dfs(i, m, t + 1, p); a[i]++; a[i + 1]++; }
+      if (i <= 6 && a[i + 2] > 0) { a[i]--; a[i + 2]--; dfs(i, m, t + 1, p); a[i]++; a[i + 2]++; }
     }
     // 残ったこの種類の牌は孤立牌として使わない
-    const keep = c[i];
-    c[i] = 0;
+    const keep = a[i];
+    a[i] = 0;
     dfs(i + 1, m, t, p);
-    c[i] = keep;
+    a[i] = keep;
   }
   dfs(0, 0, 0, 0);
+  if (SUIT_SHAPES.size > 50000) SUIT_SHAPES.clear();
+  SUIT_SHAPES.set(key, out);
+  return out;
+}
+
+function shantenStandard(counts, melds) {
+  const k = 4 - (melds || 0);
+  // 色ごとの組を足し合わせる（雀頭は全体で1つまで）
+  let states = [[0, 0, 0]];
+  for (const [from, len] of [[0, 9], [9, 9], [18, 9], [27, 7]]) {
+    const shapes = suitShapes(counts, from, len);
+    const seen = new Set();
+    const next = [];
+    for (const [m1, t1, p1] of states) {
+      for (const [m2, t2, p2] of shapes) {
+        if (p1 + p2 > 1) continue;
+        const m = m1 + m2, t = t1 + t2, p = p1 + p2;
+        const key = m * 64 + t * 2 + p;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        next.push([m, t, p]);
+      }
+    }
+    states = next;
+  }
+  let best = 2 * k;
+  for (const [m0, t0, p] of states) {
+    const m = Math.min(m0, k);
+    const t = m + t0 > k ? k - m : t0;
+    const s = 2 * k - 2 * m - t - p;
+    if (s < best) best = s;
+  }
   return best;
 }
 

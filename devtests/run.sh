@@ -1,8 +1,10 @@
 #!/bin/sh
 # 全テストの実行。./devtests/run.sh
+# macOS では jsc（インストール不要）、なければ node で動かす。
 cd "$(dirname "$0")/.." || exit 1
 JSC=/System/Library/Frameworks/JavaScriptCore.framework/Versions/Current/Helpers/jsc
-CORE="core/rng.js core/tiles.js core/rules.js core/wall.js core/hand.js core/solo.js"
-for t in hand solo; do
-  $JSC $CORE devtests/lib.js devtests/test_$t.js -e "report('$t')" 2>&1 | tail -20
+if [ -x "$JSC" ]; then RUN="$JSC"; else RUN="node devtests/node_run.js"; fi
+CORE="core/rng.js core/tiles.js core/rules.js core/wall.js core/hand.js core/solo.js core/game.js core/cpu.js"
+for t in hand solo game; do
+  $RUN $CORE devtests/lib.js devtests/test_$t.js -e "report('$t')" 2>&1 | tail -20
 done

@@ -6,7 +6,7 @@ const MODES = [
   { id: 'lesson', icon: '📖', title: '入門レッスン', text: '牌の種類から点数まで、順番に学ぶ', ready: false },
   { id: 'drill', icon: '✏️', title: '練習ドリル', text: '何切る・待ち当て・役当て・点数・危険牌', ready: false },
   { id: 'hint', icon: '💡', title: 'ヒント付き対局', text: 'おすすめの打牌と理由を見ながら打つ', ready: false },
-  { id: 'game', icon: '🎲', title: '通常対局', text: '東風戦・半荘戦。CPUの強さを選べる', ready: false },
+  { id: 'game', icon: '🎲', title: '4人対局', text: 'CPU 3人と東風戦・半荘戦（いまは鳴き・リーチなし）', ready: true },
   { id: 'mission', icon: '🎯', title: 'チャレンジ', text: '「タンヤオで和了る」などの目標', ready: false },
   { id: 'book', icon: '📚', title: '役図鑑・成績', text: '和了った役のコレクションと成績', ready: false },
 ];
@@ -30,14 +30,17 @@ function hideOverlay() {
 
 function go(screen) {
   APP.screen = screen;
+  gameStop();
   hideOverlay();
   window.scrollTo(0, 0);
   if (screen === 'solo') soloStart();
+  else if (screen === 'game') gameOpen();
   else renderHome();
 }
 
 function renderHome() {
   const s = APP.save.solo;
+  const gs = APP.save.game;
   const items = MODES.map(m =>
     `<button class="mode${m.ready ? '' : ' soon'}" data-go="${m.id}"${m.ready ? '' : ' disabled'}>` +
     `<span class="mode-icon">${m.icon}</span>` +
@@ -53,7 +56,8 @@ function renderHome() {
     `</header>` +
     `<nav class="modes">${items}</nav>` +
     `<p class="home-stat">1人打ち練習：${s.played}回／和了 ${s.wins}回` +
-    (s.bestDraws ? `／最速 ${s.bestDraws}巡目` : '') + `</p>`;
+    (s.bestDraws ? `／最速 ${s.bestDraws}巡目` : '') + `<br>` +
+    `4人対局：${gs.played}回` + (gs.played ? `（${gs.ranks.map((n, i) => `${i + 1}位 ${n}`).join('・')}）` : '') + `</p>`;
 }
 
 function appBoot() {
@@ -63,7 +67,9 @@ function appBoot() {
     const g = e.target.closest('[data-go]');
     if (g && !g.disabled) { go(g.getAttribute('data-go')); return; }
     const a = e.target.closest('[data-act]');
-    if (a && !a.disabled) soloAction(a.getAttribute('data-act'), a);
+    if (!a || a.disabled) return;
+    if (APP.screen === 'game') gameAction(a.getAttribute('data-act'), a);
+    else soloAction(a.getAttribute('data-act'), a);
   });
   go('home');
 }
