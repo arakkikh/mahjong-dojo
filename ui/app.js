@@ -7,8 +7,9 @@ const MODES = [
   { id: 'drill', icon: '✏️', title: '練習ドリル', text: '何切る・待ち当て・役当て・点数・危険牌', ready: true },
   { id: 'hint', icon: '💡', title: 'ヒント付き対局', text: 'おすすめの打牌と理由を見ながら打つ', ready: true },
   { id: 'game', icon: '🎲', title: '4人対局', text: 'CPU 3人と東風戦・半荘戦。鳴き・リーチ・役・点数あり', ready: true },
-  { id: 'mission', icon: '🎯', title: 'チャレンジ', text: '「タンヤオで和了る」などの目標', ready: false },
-  { id: 'book', icon: '📚', title: '役図鑑・成績', text: '和了った役のコレクションと成績', ready: false },
+  { id: 'mission', icon: '🎯', title: 'チャレンジ', text: '「タンヤオで和了る」などの目標', ready: true },
+  { id: 'book', icon: '📚', title: '役図鑑・成績', text: '和了った役のコレクションと成績', ready: true },
+  { id: 'settings', icon: '⚙️', title: '設定', text: 'ルール（喰いタン・赤ドラなど）・CPU の速さ', ready: true },
 ];
 
 function esc(s) {
@@ -38,6 +39,9 @@ function go(screen) {
   else if (screen === 'hint') gameOpen(true);
   else if (screen === 'lesson') lessonOpen();
   else if (screen === 'drill') drillOpen();
+  else if (screen === 'mission') missionOpen();
+  else if (screen === 'book') bookOpen();
+  else if (screen === 'settings') settingsOpen();
   else renderHome();
 }
 
@@ -61,12 +65,15 @@ function renderHome() {
     `<p class="home-stat">1人打ち練習：${s.played}回／和了 ${s.wins}回` +
     (s.bestDraws ? `／最速 ${s.bestDraws}巡目` : '') + `<br>` +
     `4人対局：${gs.played}回` + (gs.played ? `（${gs.ranks.map((n, i) => `${i + 1}位 ${n}`).join('・')}）` : '') + `<br>` +
-    `入門レッスン：${APP.save.lessons.filter(id => LESSONS.some(l => l.id === id)).length}／${LESSONS.length}` + `</p>`;
+    `入門レッスン：${APP.save.lessons.filter(id => LESSONS.some(l => l.id === id)).length}／${LESSONS.length}・` +
+    `チャレンジ：${APP.save.missions.filter(id => MISSIONS.some(m => m.id === id)).length}／${MISSIONS.length}・` +
+    `役図鑑：${YAKU_BOOK.filter(e => APP.save.yakuSeen[e.name]).length}／${YAKU_BOOK.length}` + `</p>`;
 }
 
 function appBoot() {
   buildTileSprite();
   APP.save = loadSave();
+  APP.rules = APP.save.rules;
   document.addEventListener('click', e => {
     const g = e.target.closest('[data-go]');
     if (g && !g.disabled) { go(g.getAttribute('data-go')); return; }
@@ -76,6 +83,8 @@ function appBoot() {
     if (APP.screen === 'game' || APP.screen === 'hint') gameAction(act, a);
     else if (APP.screen === 'lesson') lessonAction(act, a);
     else if (APP.screen === 'drill') drillAction(act, a);
+    else if (APP.screen === 'book') bookAction(act, a);
+    else if (APP.screen === 'settings') settingsAction(act, a);
     else soloAction(act, a);
   });
   go('home');

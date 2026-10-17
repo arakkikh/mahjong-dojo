@@ -2,7 +2,8 @@
 const GAME = { g: null, sel: null, timer: null, shown: null, mode: null, hint: false, advice: null, after: null };
 // hint: ヒント付き対局か。advice: いま出しているおすすめ。after: おすすめと違う牌を捨てたときのひとこと
 // mode: null ふつう / 'riichi' リーチで捨てる牌を選ぶ / 'chi' チーの組を選ぶ
-const CPU_DELAY = 280;     // CPU が1手打つまでの間（ミリ秒）
+// CPU が1手打つまでの間（ミリ秒）。設定で変えられる
+function cpuDelay() { return { slow: 600, normal: 280, fast: 90 }[APP.save.settings.speed] || 280; }
 const GAME_SAVE_KEY = 'mahjong-dojo-game-v1';
 
 // 席を画面の場所に。0 = 下（あなた）、1 = 右（下家）、2 = 上（対面）、3 = 左（上家）
@@ -76,7 +77,7 @@ function gameSchedule() {
   if (g.h.phase === 'end') { gameShowResult(); return; }
   if (waitingHuman(g)) { gameSaveCurrent(); return; }
   // ツモはすぐ、打牌は少し間をあける
-  const delay = g.h.phase === 'draw' ? 60 : CPU_DELAY;
+  const delay = g.h.phase === 'draw' ? 60 : cpuDelay();
   GAME.timer = setTimeout(() => {
     GAME.timer = null;
     if (GAME.g !== g || !onGameScreen()) return;
@@ -329,6 +330,7 @@ function gameShowResult() {
   if (GAME.shown === h.seed + ':' + g.handIndex) return;
   GAME.shown = h.seed + ':' + g.handIndex;
   GAME.mode = null;
+  const newly = gameRecordHand(g);
   gameSaveCurrent();
   const r = h.result;
   let body;
@@ -366,9 +368,37 @@ function gameShowResult() {
     const renchan = r.type === 'draw' ? r.tenpai[dealer] : r.winner === dealer;
     next = `<p class="note">${renchan ? '親が' + (r.type === 'draw' ? '聴牌' : '和了') + 'したので、もう一度同じ親で続けます（連荘）。' : '次の局は親が交代します。'}</p>`;
   }
-  body += `<table class="pay"><tbody>${payRows(g, r.pay)}</tbody></table>` + next;
+  body = missionToastHtml(newly) + body + `<table class="pay"><tbody>${payRows(g, r.pay)}</tbody></table>` + next;
   showOverlay(body + `<div class="ov-actions"><button class="big" data-act="next">次へ</button>` +
     `<button data-act="close">卓を見る</button></div>`);
+}
+
+function todayText() {
+  const d = new Date();
+  return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
+}
+
+// 局の結果を記録する（1つの局で1回だけ）。新しく達成したチャレンジの id を返す。
+// 成績はふつうの対局だけ、役図鑑とチャレンジはヒント付き対局でも数える。
+function gameRecordHand(g) {
+  const h = g.h;
+  if (h.recorded) return [];
+  h.recorded = true;
+  const ev = handEvent(g);
+  if (!GAME.hint) recordHand(APP.save.records, ev, todayText());
+  if (ev.win) for (const n of ev.yaku) { const k = yakuKey(n); APP.save.yakuSeen[k] = (APP.save.yakuSeen[k] || 0) + 1; }
+  const newly = missionsNewlyDone(ev, APP.save.missions);
+  APP.save.missions.push(...newly);
+  writeSave(APP.save);
+  return newly;
+}
+
+function missionToastHtml(ids) {
+  if (!ids || !ids.length) return '';
+  return `<div class="mtoast">` + ids.map(id => {
+    const m = MISSIONS.find(x => x.id === id);
+    return `<p>🎯 チャレンジ達成：<b>${esc(m.title)}</b></p>`;
+  }).join('') + `</div>`;
 }
 
 function gameShowFinal() {
@@ -377,10 +407,18 @@ function gameShowFinal() {
   GAME.shown = 'final';
   const rank = gameRanking(g);
   const myRank = rank.indexOf(HUMAN) + 1;
-  if (!GAME.hint) {
-    const st = APP.save.game;
-    st.played++;
-    st.ranks[myRank - 1]++;
+  let newly = [];
+  if (!g.recorded) {
+    g.recorded = true;
+    const ev = matchEvent(g);
+    if (!GAME.hint) {
+      const st = APP.save.game;
+      st.played++;
+      st.ranks[myRank - 1]++;
+      recordMatch(APP.save.records, ev, todayText());
+    }
+    newly = missionsNewlyDone(ev, APP.save.missions);
+    APP.save.missions.push(...newly);
     writeSave(APP.save);
   }
   gameDropSaved();
@@ -389,7 +427,7 @@ function gameShowFinal() {
   const msg = myRank === 1 ? 'トップ！おめでとう！' : myRank === 4 ? '次はがんばろう' : `${myRank}位でした`;
   showOverlay(`<h2>終局</h2><p class="final-msg">${msg}</p>` +
     `<table class="pay final"><tbody>${rows}</tbody></table>` +
-    `<p class="note">${g.history.length}局 打ちました。</p>` +
+    `<p class="note">${g.history.length}局 打ちました。</p>` + missionToastHtml(newly) +
     `<div class="ov-actions"><button class="big" data-act="again">もう一度対局する</button>` +
     `<button data-go="home">ホームへ</button></div>`);
 }
