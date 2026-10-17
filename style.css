@@ -1,0 +1,129 @@
+:root {
+  --felt: #155138;
+  --felt-dark: #0f3a28;
+  --felt-light: #1d6847;
+  --ink: #f4f1e6;
+  --muted: #b9cbbf;
+  --gold: #f2c14e;
+  --accent: #e2543f;
+  --panel: rgba(0, 0, 0, .22);
+  --gutter: 8px;
+  /* 手牌14枚＋ツモ牌の隙間が画面幅に収まる牌の幅 */
+  --tw: min(calc((min(100vw, 520px) - var(--gutter) * 2 - 10px - 13px) / 14), 40px);
+  --th: calc(var(--tw) * 4 / 3);
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: radial-gradient(ellipse at 50% 30%, var(--felt-light), var(--felt) 55%, var(--felt-dark));
+  background-color: var(--felt);
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+#app {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: calc(env(safe-area-inset-top) + 6px) var(--gutter) calc(env(safe-area-inset-bottom) + 16px);
+}
+button {
+  font: inherit;
+  color: inherit;
+  border: 1px solid rgba(255, 255, 255, .25);
+  background: rgba(255, 255, 255, .1);
+  border-radius: 10px;
+  padding: 10px 14px;
+  min-height: 44px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+button:disabled { opacity: .4; cursor: default; }
+button.big { background: var(--gold); color: #3a2a00; border-color: transparent; font-weight: 700; }
+
+.tile { display: block; width: var(--tw); height: var(--th); }
+.tile.mini { display: inline-block; width: 20px; height: 27px; vertical-align: middle; }
+.tile.mid { width: 30px; height: 40px; }
+.tile.rv { width: 100%; height: auto; aspect-ratio: 3 / 4; }
+
+/* ホーム */
+.home-head { text-align: center; padding: 18px 0 8px; }
+.home-tiles { display: flex; justify-content: center; gap: 4px; margin-bottom: 10px; }
+.home-tiles .tile { width: 34px; height: 45px; }
+.home-head h1 { margin: 4px 0; font-size: 26px; letter-spacing: .05em; }
+.lead { margin: 0; color: var(--muted); font-size: 14px; }
+.modes { display: grid; gap: 8px; margin-top: 14px; }
+.mode {
+  display: flex; align-items: center; gap: 12px; text-align: left;
+  background: var(--panel); padding: 12px 14px; position: relative;
+}
+.mode-icon { font-size: 26px; width: 34px; text-align: center; }
+.mode-body { display: flex; flex-direction: column; gap: 2px; }
+.mode-body small { color: var(--muted); font-size: 12px; }
+.mode.soon { opacity: .55; }
+.soon-tag { position: absolute; right: 10px; top: 8px; font-size: 11px; color: var(--muted); }
+.home-stat { text-align: center; color: var(--muted); font-size: 13px; margin-top: 16px; }
+
+/* 上のバー */
+.bar { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.bar b { flex: 1; font-size: 16px; }
+.bar .back { min-height: 36px; padding: 6px 10px; font-size: 14px; }
+.seed { font-size: 11px; color: var(--muted); }
+
+/* 1人打ち */
+.solo-info { display: flex; justify-content: space-between; align-items: center; background: var(--panel); border-radius: 10px; padding: 6px 10px; font-size: 13px; }
+.solo-info b { font-size: 18px; color: var(--gold); }
+.dora { display: flex; align-items: center; gap: 4px; }
+.guide { font-size: 12px; color: var(--muted); margin: 8px 2px; line-height: 1.5; }
+.guide b { color: var(--ink); }
+.river {
+  display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px;
+  width: min(100%, 216px); margin: 6px auto; min-height: 96px; align-content: start;
+  background: rgba(0, 0, 0, .15); border-radius: 8px; padding: 6px;
+}
+.river .empty { grid-column: 1 / -1; text-align: center; color: var(--muted); font-size: 12px; padding-top: 30px; }
+.status { text-align: center; font-weight: 700; margin: 10px 0 6px; min-height: 1.4em; }
+.status.win { color: var(--gold); font-size: 18px; animation: pulse 1s ease-in-out infinite alternate; }
+@keyframes pulse { from { transform: scale(1); } to { transform: scale(1.06); } }
+
+.hand { display: flex; justify-content: center; align-items: flex-end; gap: 1px; padding-top: 14px; }
+.ht {
+  padding: 0; min-height: 0; border: 0; background: none; border-radius: 4px;
+  transition: transform .12s;
+}
+.ht:disabled { opacity: 1; }
+.ht.sel { transform: translateY(-12px) scale(1.12); position: relative; z-index: 1; }
+.ht.sel .tile { filter: drop-shadow(0 4px 4px rgba(0, 0, 0, .45)); }
+.draw-gap { width: 10px; flex: none; }
+.hand.done .ht { filter: brightness(.95); }
+.tap-help { text-align: center; color: var(--muted); font-size: 11px; margin: 6px 0 10px; }
+
+.actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.actions .tsumo { grid-column: 1 / -1; font-size: 18px; }
+.opt { display: flex; align-items: center; gap: 8px; justify-content: center; margin-top: 12px; font-size: 13px; color: var(--muted); }
+.opt input { width: 20px; height: 20px; }
+
+/* 重ねて出す画面 */
+#overlay {
+  position: fixed; inset: 0; background: rgba(0, 0, 0, .6);
+  display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 10;
+}
+#overlay[hidden] { display: none; }
+.ov-box {
+  width: min(100%, 420px); max-height: 90vh; overflow: auto;
+  background: #fbf8ef; color: #222; border-radius: 14px; padding: 18px 16px; text-align: center;
+}
+.ov-box h2 { margin: 0 0 6px; }
+.win-title { color: var(--accent); font-size: 32px; letter-spacing: .1em; }
+.groups { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 10px; margin: 10px 0; }
+.grp { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.grp-tiles { display: flex; flex-wrap: wrap; justify-content: center; gap: 1px; max-width: 100%; }
+.grp small { font-size: 11px; color: #666; }
+.waits { display: flex; justify-content: center; gap: 4px; margin: 6px 0; }
+.note { font-size: 13px; color: #444; }
+.ov-actions { display: grid; gap: 8px; margin-top: 12px; }
+.ov-actions button { color: #222; border-color: #ccc; background: #eee; }
+.ov-actions button.big { background: var(--gold); }
